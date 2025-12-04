@@ -3,6 +3,8 @@ from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Sum
 from django.core.validators import RegexValidator
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 class Task(models.Model):
     class Status(models.TextChoices):
@@ -20,28 +22,17 @@ class Task(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    # Optional: You can enable validators if you want
     hex_color_validator = RegexValidator(
         regex=r'^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$',
         message='Enter a valid hex color.'
     )
 
-    background_color = models.CharField(
-        max_length=7,
-        default="#FFFFFF",
-        validators=[hex_color_validator]
-    )
-
-    color = models.CharField(
-        max_length=7,
-        default="#000000",
-        validators=[hex_color_validator]
-    )
+    background_color = models.CharField(max_length=7, default="#FFFFFF", validators=[hex_color_validator])
+    color = models.CharField(max_length=7, default="#000000", validators=[hex_color_validator])
 
     def progress(self):
         if self.estimated_minutes == 0:
             return 0
-
         focused = self.total_focused_minutes()
         return min(100, int((focused / self.estimated_minutes) * 100))
 
@@ -60,14 +51,17 @@ class FocusSession(models.Model):
     ended_at = models.DateTimeField(null=True, blank=True)
 
     duration_minutes = models.PositiveIntegerField(default=0)
-    success = models.BooleanField(default=False)  # forest-like success marker
+    success = models.BooleanField(default=False)
     notes = models.TextField(blank=True)
 
     def save(self, *args, **kwargs):
         # Auto compute duration if ended_at is provided
-        if self.started_at and self.ended_at and self.duration_minutes == 0:
+        if self.started_at and self.ended_at:
             delta = self.ended_at - self.started_at
-            self.duration_minutes = max(0, int(delta.total_seconds() // 60))
+            # Recalculate duration only if it wasn't manually overridden or if it's 0
+            computed_minutes = max(0, int(delta.total_seconds() // 60))
+            if self.duration_minutes == 0 or self.duration_minutes != computed_minutes:
+                self.duration_minutes = computed_minutes
 
         super().save(*args, **kwargs)
 
@@ -76,71 +70,62 @@ class FocusSession(models.Model):
 
 
 class DaySummary(models.Model):
-    date = models.DateField(default=timezone.localdate)
+    date = models.DateField(default=timezone.localdate, unique=True) # Added unique=True to prevent duplicates
     summary_text = models.TextField(blank=True)
 
     total_focused_minutes = models.PositiveIntegerField(default=0)
 
     def recompute(self):
         """Recalculate the total focus minutes for the day."""
-        start = timezone.make_aware(
-            timezone.datetime.combine(self.date, timezone.datetime.min.time())
-        )
-        end = timezone.make_aware(
-            timezone.datetime.combine(self.date, timezone.datetime.max.time())
-        )
-
+        # FIX: Use __date lookup. This handles timezone conversion automatically
+        # and lets PostgreSQL do the heavy lifting.
         minutes = FocusSession.objects.filter(
-            started_at__gte=start,
-            started_at__lte=end
+            started_at__date=self.date
         ).aggregate(total=Sum("duration_minutes"))["total"] or 0
 
         self.total_focused_minutes = minutes
         self.save()
 
     def __str__(self):
-        return f"Summary {self.date}"
+        return f"Summary {self.date} - {self.total_focused_minutes}m"
 
 
 class Block(models.Model):
     """A scheduling block tied to a Task."""
-
     task = models.ForeignKey(Task, related_name="blocks", on_delete=models.CASCADE)
 
-    # Title and desc are derived from the linked Task and are not user-editable
-    title = models.CharField(max_length=200, blank=True, editable=False)
-    desc = models.TextField(blank=True, editable=False)
+    title = models.CharField(max_length=200, blank=True)
+    desc = models.TextField(blank=True)
 
     start_date = models.DateTimeField(default=timezone.now)
-    # Not editable by API/forms; computed from `start_date` + task.estimated_minutes
-    end_date = models.DateTimeField(null=True, blank=True, editable=False)
+    end_date = models.DateTimeField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
-
-        # Always synchronize title/description from the Task so they're not
-        # editable by clients or forms.
-        try:
+        if not self.title:
             self.title = self.task.title
-        except Exception:
-            self.title = self.title or ""
 
-        try:
+        if not self.desc:
             self.desc = self.task.description
-        except Exception:
-            self.desc = self.desc or ""
 
-        # Auto-compute end_date from start_date + task estimated_minutes
-        # Because `end_date` is not user-editable, always compute it whenever
-        # we have a start_date and a task with an estimated duration.
-        try:
-            estimated = int(self.task.estimated_minutes or 0)
-        except Exception:
-            estimated = 0
-
-        if self.start_date and estimated:
-            self.end_date = self.start_date + timedelta(minutes=estimated)
+        if not self.end_date and self.task.estimated_minutes:
+            self.end_date = self.start_date + timedelta(minutes=self.task.estimated_minutes)
 
         super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Block: {self.title} ({self.start_date.isoformat()})"
+
+
+# --- SIGNALS ---
+# This ensures DaySummary updates automatically whenever a FocusSession is saved.
+
+@receiver(post_save, sender=FocusSession)
+def update_day_summary(sender, instance, **kwargs):
+    # 1. Get the local date of the session start
+    session_date = timezone.localdate(instance.started_at)
+    
+    # 2. Get or Create the DaySummary for that date
+    summary, created = DaySummary.objects.get_or_create(date=session_date)
+    
+    # 3. Trigger the calculation
+    summary.recompute()

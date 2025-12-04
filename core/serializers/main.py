@@ -26,6 +26,7 @@ class DaySummarySerializer(serializers.ModelSerializer):
             "summary_text",
             "total_focused_minutes",
         ]
+        read_only_fields = ["total_focused_minutes"]
 
 
 class BlockSerializer(serializers.ModelSerializer):
