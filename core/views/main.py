@@ -4,16 +4,18 @@ from django.db.models import Sum, Count, Case, When, IntegerField
 from django.db.models.functions import TruncWeek, TruncMonth
 from datetime import timedelta
 
-from core.models.main import Task, FocusSession, DaySummary
+from core.models.main import Task, FocusSession, DaySummary, Block
 from core.serializers.main import (
     TaskSerializer,
     FocusSessionSerializer,
     DaySummarySerializer,
+    BlockSerializer,
 )
 
 
 class TaskViewSet(viewsets.ModelViewSet):
-    queryset = Task.objects.all().order_by("-created_at")
+    # Prefetch related focus sessions and blocks to reduce DB hits
+    queryset = Task.objects.all().prefetch_related("focus_sessions", "blocks").order_by("-created_at")
     serializer_class = TaskSerializer
 
     @decorators.action(detail=True, methods=["post"], url_path="start-focus")
@@ -41,7 +43,8 @@ class TaskViewSet(viewsets.ModelViewSet):
         focus_minutes = task.focus_sessions.aggregate(m=Sum("duration_minutes"))["m"] or 0
         return response.Response({
             "focused_minutes": focus_minutes,
-            "progress": task.progress,
+            "progress": task.progress(),
+            "total_focused_minutes": task.total_focused_minutes(),
             "status": task.status,
         })
 
@@ -49,6 +52,11 @@ class TaskViewSet(viewsets.ModelViewSet):
 class FocusSessionViewSet(viewsets.ModelViewSet):
     queryset = FocusSession.objects.all().order_by("-started_at")
     serializer_class = FocusSessionSerializer
+
+
+class BlockViewSet(viewsets.ModelViewSet):
+    queryset = Block.objects.all().order_by("-start_date")
+    serializer_class = BlockSerializer
 
 
 class DaySummaryViewSet(viewsets.ModelViewSet):
