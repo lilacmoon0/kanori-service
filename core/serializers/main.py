@@ -39,6 +39,8 @@ class BlockSerializer(serializers.ModelSerializer):
             "start_date",
             "end_date",
         ]
+        # title/desc/end_date are derived server-side and not writable by clients
+        read_only_fields = ["title", "desc", "end_date"]
 
 class TaskSerializer(serializers.ModelSerializer):
     focus_sessions = FocusSessionSerializer(many=True, read_only=True)

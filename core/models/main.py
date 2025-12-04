@@ -107,24 +107,38 @@ class Block(models.Model):
 
     task = models.ForeignKey(Task, related_name="blocks", on_delete=models.CASCADE)
 
-    title = models.CharField(max_length=200, blank=True)
-    desc = models.TextField(blank=True)
+    # Title and desc are derived from the linked Task and are not user-editable
+    title = models.CharField(max_length=200, blank=True, editable=False)
+    desc = models.TextField(blank=True, editable=False)
 
     start_date = models.DateTimeField(default=timezone.now)
-    end_date = models.DateTimeField(null=True, blank=True)
+    # Not editable by API/forms; computed from `start_date` + task.estimated_minutes
+    end_date = models.DateTimeField(null=True, blank=True, editable=False)
 
     def save(self, *args, **kwargs):
 
-        # Default title/description from task
-        if not self.title:
+        # Always synchronize title/description from the Task so they're not
+        # editable by clients or forms.
+        try:
             self.title = self.task.title
+        except Exception:
+            self.title = self.title or ""
 
-        if not self.desc:
+        try:
             self.desc = self.task.description
+        except Exception:
+            self.desc = self.desc or ""
 
-        # Default end_date = start_date + estimated task duration
-        if not self.end_date and self.task.estimated_minutes:
-            self.end_date = self.start_date + timedelta(minutes=self.task.estimated_minutes)
+        # Auto-compute end_date from start_date + task estimated_minutes
+        # Because `end_date` is not user-editable, always compute it whenever
+        # we have a start_date and a task with an estimated duration.
+        try:
+            estimated = int(self.task.estimated_minutes or 0)
+        except Exception:
+            estimated = 0
+
+        if self.start_date and estimated:
+            self.end_date = self.start_date + timedelta(minutes=estimated)
 
         super().save(*args, **kwargs)
 
