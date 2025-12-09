@@ -28,6 +28,7 @@ class Task(models.Model):
     )
 
     background_color = models.CharField(max_length=7, default="#FFFFFF", validators=[hex_color_validator])
+    theme_color = models.CharField(max_length=7, default="#10b981", validators=[hex_color_validator])
     color = models.CharField(max_length=7, default="#000000", validators=[hex_color_validator])
 
     def progress(self):

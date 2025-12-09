@@ -81,6 +81,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "progress",
             "estimated_minutes",
             "background_color",
+            "theme_color",
             "color",
             "created_at",
             "updated_at",
