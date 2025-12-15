@@ -64,6 +64,9 @@ class FocusSession(models.Model):
             if self.duration_minutes == 0 or self.duration_minutes != computed_minutes:
                 self.duration_minutes = computed_minutes
 
+        # Enforce success rule: false if duration under 10 minutes
+        self.success = self.duration_minutes >= 10
+
         super().save(*args, **kwargs)
 
     def __str__(self):
