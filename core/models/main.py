@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Sum
@@ -7,6 +8,12 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 class Task(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="tasks",
+    )
+
     class Status(models.TextChoices):
         TODO = "todo", "To Do"
         DOING = "doing", "General Doing"
@@ -74,7 +81,13 @@ class FocusSession(models.Model):
 
 
 class DaySummary(models.Model):
-    date = models.DateField(default=timezone.localdate, unique=True) # Added unique=True to prevent duplicates
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="day_summaries",
+    )
+
+    date = models.DateField(default=timezone.localdate)
     summary_text = models.TextField(blank=True)
 
     total_focused_minutes = models.PositiveIntegerField(default=0)
@@ -83,9 +96,11 @@ class DaySummary(models.Model):
         """Recalculate the total focus minutes for the day."""
         # FIX: Use __date lookup. This handles timezone conversion automatically
         # and lets PostgreSQL do the heavy lifting.
-        minutes = FocusSession.objects.filter(
-            started_at__date=self.date
-        ).aggregate(total=Sum("duration_minutes"))["total"] or 0
+        minutes_qs = FocusSession.objects.filter(started_at__date=self.date)
+        if self.user_id is not None:
+            minutes_qs = minutes_qs.filter(task__user_id=self.user_id)
+
+        minutes = minutes_qs.aggregate(total=Sum("duration_minutes"))["total"] or 0
 
         self.total_focused_minutes = minutes
         self.save()
@@ -129,7 +144,10 @@ def update_day_summary(sender, instance, **kwargs):
     session_date = timezone.localdate(instance.started_at)
     
     # 2. Get or Create the DaySummary for that date
-    summary, created = DaySummary.objects.get_or_create(date=session_date)
+    summary, created = DaySummary.objects.get_or_create(
+        user=instance.task.user,
+        date=session_date,
+    )
     
     # 3. Trigger the calculation
     summary.recompute()

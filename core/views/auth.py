@@ -1,8 +1,9 @@
 from rest_framework import generics, permissions, response, status
 from rest_framework.views import APIView
+from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from core.serializers.auth import RegisterSerializer, UserSerializer
+from core.serializers.auth import LoginSerializer, RegisterSerializer, UserSerializer
 
 
 class RegisterView(generics.CreateAPIView):
@@ -21,6 +22,10 @@ class RegisterView(generics.CreateAPIView):
             "refresh": str(refresh),
         }
         return response.Response(data, status=status.HTTP_201_CREATED)
+
+
+class LoginView(TokenObtainPairView):
+    serializer_class = LoginSerializer
 
 
 class MeView(APIView):

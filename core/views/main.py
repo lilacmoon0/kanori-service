@@ -1,4 +1,4 @@
-from rest_framework import viewsets, decorators, response, status
+from rest_framework import viewsets, decorators, response, status, permissions
 from django.utils import timezone
 from django.db.models import Sum, Count, Case, When, IntegerField
 from django.db.models.functions import TruncWeek, TruncMonth
@@ -14,9 +14,19 @@ from core.serializers.main import (
 
 
 class TaskViewSet(viewsets.ModelViewSet):
-    # Prefetch related focus sessions and blocks to reduce DB hits
-    queryset = Task.objects.all().prefetch_related("focus_sessions", "blocks").order_by("-created_at")
+    permission_classes = [permissions.IsAuthenticated]
     serializer_class = TaskSerializer
+
+    def get_queryset(self):
+        # Prefetch related focus sessions and blocks to reduce DB hits
+        return (
+            Task.objects.filter(user=self.request.user)
+            .prefetch_related("focus_sessions", "blocks")
+            .order_by("-created_at")
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
     @decorators.action(detail=True, methods=["post"], url_path="start-focus")
     def start_focus(self, request, pk=None):
@@ -50,24 +60,36 @@ class TaskViewSet(viewsets.ModelViewSet):
 
 
 class FocusSessionViewSet(viewsets.ModelViewSet):
-    queryset = FocusSession.objects.all().order_by("-started_at")
+    permission_classes = [permissions.IsAuthenticated]
     serializer_class = FocusSessionSerializer
+
+    def get_queryset(self):
+        return FocusSession.objects.filter(task__user=self.request.user).order_by("-started_at")
 
 
 class BlockViewSet(viewsets.ModelViewSet):
-    queryset = Block.objects.all().order_by("-start_date")
+    permission_classes = [permissions.IsAuthenticated]
     serializer_class = BlockSerializer
+
+    def get_queryset(self):
+        return Block.objects.filter(task__user=self.request.user).order_by("-start_date")
 
 
 class DaySummaryViewSet(viewsets.ModelViewSet):
-    queryset = DaySummary.objects.all().order_by("-date")
+    permission_classes = [permissions.IsAuthenticated]
     serializer_class = DaySummarySerializer
+
+    def get_queryset(self):
+        return DaySummary.objects.filter(user=self.request.user).order_by("-date")
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
     @decorators.action(detail=False, methods=["post"], url_path="recompute")
     def recompute(self, request):
         date_str = request.data.get("date")
         date = timezone.datetime.fromisoformat(date_str).date() if date_str else timezone.localdate()
-        summary, _ = DaySummary.objects.get_or_create(date=date)
+        summary, _ = DaySummary.objects.get_or_create(user=request.user, date=date)
         summary.recompute()
         return response.Response(DaySummarySerializer(summary).data)
 
@@ -89,7 +111,11 @@ class DaySummaryViewSet(viewsets.ModelViewSet):
         end_dt = timezone.make_aware(timezone.datetime.combine(end_date, timezone.datetime.min.time()), tz)
 
         qs = (
-            FocusSession.objects.filter(started_at__gte=start_dt, started_at__lt=end_dt)
+            FocusSession.objects.filter(
+                task__user=request.user,
+                started_at__gte=start_dt,
+                started_at__lt=end_dt,
+            )
             .annotate(period=TruncWeek("started_at", tzinfo=tz))
             .values("period")
             .annotate(
@@ -148,7 +174,11 @@ class DaySummaryViewSet(viewsets.ModelViewSet):
         end_dt = timezone.make_aware(timezone.datetime.combine(end_date, timezone.datetime.min.time()), tz)
 
         qs = (
-            FocusSession.objects.filter(started_at__gte=start_dt, started_at__lt=end_dt)
+            FocusSession.objects.filter(
+                task__user=request.user,
+                started_at__gte=start_dt,
+                started_at__lt=end_dt,
+            )
             .annotate(period=TruncMonth("started_at", tzinfo=tz))
             .values("period")
             .annotate(
