@@ -135,6 +135,51 @@ class Block(models.Model):
         return f"Block: {self.title} ({self.start_date.isoformat()})"
 
 
+class Setting(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="setting",
+    )
+
+    day_bounds = models.JSONField(default=list, blank=True)
+    column_colors = models.JSONField(default=list, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Setting for user {self.user_id}"
+
+
+class Note(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notes",
+    )
+
+    title = models.CharField(max_length=200)
+    content = models.TextField(blank=True)
+
+    background_color = models.CharField(
+        max_length=7,
+        default="#FFFFFF",
+        validators=[
+            RegexValidator(
+                regex=r"^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$",
+                message="Enter a valid hex color.",
+            )
+        ],
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title
+
+
 # --- SIGNALS ---
 # This ensures DaySummary updates automatically whenever a FocusSession is saved.
 

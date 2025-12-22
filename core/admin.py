@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models.main import Task, FocusSession, DaySummary, Block
+from .models.main import Task, FocusSession, DaySummary, Block, Setting, Note
 
 
 @admin.register(Task)
@@ -26,4 +26,15 @@ class DaySummaryAdmin(admin.ModelAdmin):
 class BlockAdmin(admin.ModelAdmin):
 	list_display = ("id", "title", "task", "start_date", "end_date")
 	search_fields = ("title", "task__title")
+
+
+@admin.register(Setting)
+class SettingAdmin(admin.ModelAdmin):
+	list_display = ("id", "user", "created_at", "updated_at")
+
+
+@admin.register(Note)
+class NoteAdmin(admin.ModelAdmin):
+	list_display = ("id", "title", "user", "background_color", "created_at")
+	search_fields = ("title", "content")
 

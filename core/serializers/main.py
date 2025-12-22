@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from core.models.main import Task, FocusSession, DaySummary, Block
+from core.models.main import Task, FocusSession, DaySummary, Block, Setting, Note
 
 class FocusSessionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -89,3 +89,30 @@ class TaskSerializer(serializers.ModelSerializer):
             "blocks",
             "total_focused_minutes",
         ]
+
+
+class SettingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Setting
+        fields = [
+            "id",
+            "day_bounds",
+            "column_colors",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
+
+
+class NoteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Note
+        fields = [
+            "id",
+            "title",
+            "content",
+            "background_color",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]

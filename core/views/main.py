@@ -4,12 +4,14 @@ from django.db.models import Sum, Count, Case, When, IntegerField
 from django.db.models.functions import TruncWeek, TruncMonth
 from datetime import timedelta
 
-from core.models.main import Task, FocusSession, DaySummary, Block
+from core.models.main import Task, FocusSession, DaySummary, Block, Setting, Note
 from core.serializers.main import (
     TaskSerializer,
     FocusSessionSerializer,
     DaySummarySerializer,
     BlockSerializer,
+    SettingSerializer,
+    NoteSerializer,
 )
 
 
@@ -205,3 +207,37 @@ class DaySummaryViewSet(viewsets.ModelViewSet):
             "months": months,
             "items": data,
         })
+
+
+class SettingViewSet(viewsets.ModelViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = SettingSerializer
+
+    def get_queryset(self):
+        return Setting.objects.filter(user=self.request.user).order_by("-updated_at")
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @decorators.action(detail=False, methods=["get", "put", "patch"], url_path="me")
+    def me(self, request):
+        setting, _ = Setting.objects.get_or_create(user=request.user)
+
+        if request.method.lower() == "get":
+            return response.Response(self.get_serializer(setting).data)
+
+        serializer = self.get_serializer(setting, data=request.data, partial=(request.method.lower() == "patch"))
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return response.Response(serializer.data)
+
+
+class NoteViewSet(viewsets.ModelViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = NoteSerializer
+
+    def get_queryset(self):
+        return Note.objects.filter(user=self.request.user).order_by("-updated_at")
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
