@@ -72,7 +72,7 @@ class FocusSession(models.Model):
                 self.duration_minutes = computed_minutes
 
         # Enforce success rule: false if duration under 10 minutes
-        self.success = self.duration_minutes >= 10
+        self.success = self.duration_minutes >= 1
 
         super().save(*args, **kwargs)
 
@@ -115,9 +115,10 @@ class Block(models.Model):
 
     title = models.CharField(max_length=200, blank=True)
     desc = models.TextField(blank=True)
+    done = models.BooleanField(default=False)
 
     start_date = models.DateTimeField(default=timezone.now)
-    end_date = models.DateTimeField(null=True, blank=True)
+    end_date = models.DateTimeField(default=timezone.now)
 
     def save(self, *args, **kwargs):
         if not self.title:
@@ -125,9 +126,6 @@ class Block(models.Model):
 
         if not self.desc:
             self.desc = self.task.description
-
-        if not self.end_date and self.task.estimated_minutes:
-            self.end_date = self.start_date + timedelta(minutes=self.task.estimated_minutes)
 
         super().save(*args, **kwargs)
 

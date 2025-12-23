@@ -24,7 +24,7 @@ class DaySummaryAdmin(admin.ModelAdmin):
 
 @admin.register(Block)
 class BlockAdmin(admin.ModelAdmin):
-	list_display = ("id", "title", "task", "start_date", "end_date")
+	list_display = ("id", "title", "task", "done", "start_date", "end_date")
 	search_fields = ("title", "task__title")
 
 

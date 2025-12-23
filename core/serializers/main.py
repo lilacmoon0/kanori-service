@@ -30,6 +30,17 @@ class DaySummarySerializer(serializers.ModelSerializer):
 
 
 class BlockSerializer(serializers.ModelSerializer):
+    def validate(self, attrs):
+        start_date = attrs.get("start_date", getattr(self.instance, "start_date", None))
+        end_date = attrs.get("end_date", getattr(self.instance, "end_date", None))
+
+        if start_date and end_date and end_date < start_date:
+            raise serializers.ValidationError({
+                "end_date": "end_date must be greater than or equal to start_date"
+            })
+
+        return attrs
+
     class Meta:
         model = Block
         fields = [
@@ -37,11 +48,12 @@ class BlockSerializer(serializers.ModelSerializer):
             "task",
             "title",
             "desc",
+            "done",
             "start_date",
             "end_date",
         ]
-        # title/desc/end_date are derived server-side and not writable by clients
-        read_only_fields = ["title", "desc", "end_date"]
+        # title/desc are derived server-side and not writable by clients
+        read_only_fields = ["title", "desc"]
 
 class TaskSerializer(serializers.ModelSerializer):
     focus_sessions = FocusSessionSerializer(many=True, read_only=True)
