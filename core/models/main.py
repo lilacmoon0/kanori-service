@@ -178,19 +178,12 @@ class Note(models.Model):
         return self.title
 
 
-# --- SIGNALS ---
-# This ensures DaySummary updates automatically whenever a FocusSession is saved.
-
 @receiver(post_save, sender=FocusSession)
 def update_day_summary(sender, instance, **kwargs):
-    # 1. Get the local date of the session start
     session_date = timezone.localdate(instance.started_at)
-    
-    # 2. Get or Create the DaySummary for that date
     summary, created = DaySummary.objects.get_or_create(
         user=instance.task.user,
         date=session_date,
     )
     
-    # 3. Trigger the calculation
     summary.recompute()
