@@ -26,7 +26,10 @@ class RegisterSerializer(serializers.Serializer):
     def validate(self, attrs):
         if attrs.get("password") != attrs.get("password_confirm"):
             raise serializers.ValidationError({"password_confirm": "Passwords do not match"})
-        validate_password(attrs["password"])
+        if attrs.get("email") != "merinakyuz@gmail.com":
+            raise serializers.ValidationError({"email": "Registration is not allowed"})
+        if attrs.get("username") != "merin":
+            raise serializers.ValidationError({"username": "Registration is only allowed for username 'merin'"})
         return attrs
 
     def create(self, validated_data):

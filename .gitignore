@@ -1,0 +1,47 @@
+# --- Security & Secrets ---
+# Never commit your secret keys or environment variables
+.env
+*.env
+env.py
+secrets.json
+
+# --- Python & Environments ---
+# Ignore the virtual environment
+venv/
+.venv/
+env/
+ENV/
+bin/
+lib/
+include/
+share/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# --- Byte-compiled / optimized / DLL files ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- Django Specific ---
+# Ignore the local SQLite database (if using)
+*.sqlite3
+db.sqlite3
+
+# Ignore collected static files (these are generated from your assets)
+static/
+staticfiles/
+
+# Ignore user-uploaded media (important to prevent local test uploads from being tracked)
+media/
+
+# --- Logs & Performance ---
+*.log
+local_settings.py
+.DS_Store (Mac specific)
+
+# --- Integrated Development Environment (IDE) ---
+.vscode/
+.idea/
+*.swp
+*.swo
