@@ -1,0 +1,14 @@
+# Core Framework
+django
+djangorestframework
+djangorestframework-simplejwt
+
+# Database Connection (Mandatory for Render Postgres)
+psycopg2
+python-dotenv
+
+# Production Server (Mandatory to run the app)
+gunicorn
+
+# Static Files (Mandatory to show CSS/Images in production)
+whitenoise
