@@ -12,3 +12,4 @@ gunicorn
 
 # Static Files (Mandatory to show CSS/Images in production)
 whitenoise
+django-cors-headers

@@ -32,7 +32,7 @@ db.sqlite3
 static/
 staticfiles/
 
-# Ignore user-uploaded media (important to prevent local test uploads from being tracked)
+# Ignore user-uploaded media (important to prevent local test ups from being tracked)
 media/
 
 # --- Logs & Performance ---
